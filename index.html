@@ -66,6 +66,7 @@
         <div class="flex gap-2 mb-6">
             <button onclick="showTab('search')" id="tab-search" class="px-4 py-2 rounded-lg font-medium bg-adlify-orange text-white">🔍 Vyhľadávanie</button>
             <button onclick="showTab('import')" id="tab-import" class="px-4 py-2 rounded-lg font-medium bg-gray-100 text-gray-700">📥 Import</button>
+            <button onclick="showTab('manual')" id="tab-manual" class="px-4 py-2 rounded-lg font-medium bg-gray-100 text-gray-700">✏️ Manuálne</button>
         </div>
 
         <div id="panel-search" class="bg-white rounded-2xl shadow-lg p-8 mb-8">
@@ -91,6 +92,35 @@
             <button onclick="handleImport()" class="gradient-bg text-white font-semibold py-3 px-6 rounded-xl hover:opacity-90">📥 Importovať</button>
         </div>
 
+        <!-- NOVÝ PANEL: Manuálne pridanie firmy bez webu -->
+        <div id="panel-manual" class="bg-white rounded-2xl shadow-lg p-8 mb-8 hidden">
+            <h1 class="text-2xl font-bold text-gray-800 mb-6">✏️ Pridať firmu manuálne</h1>
+            <p class="text-gray-500 mb-6">Pre firmy bez webstránky - zadaj základné údaje a AI vytvorí analýzu</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Názov firmy *</label>
+                    <input type="text" id="manualName" placeholder="napr. Autoservis Novák" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Odvetvie *</label>
+                    <input type="text" id="manualIndustry" placeholder="napr. autoservis, kaderníctvo, reštaurácia" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Mesto *</label>
+                    <input type="text" id="manualCity" placeholder="napr. Bratislava" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email (voliteľné)</label>
+                    <input type="email" id="manualEmail" placeholder="kontakt@firma.sk" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Popis služieb (voliteľné)</label>
+                    <textarea id="manualDesc" rows="3" placeholder="Stručný popis služieb, špecializácie..." class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none"></textarea>
+                </div>
+            </div>
+            <button onclick="handleManualAdd()" class="mt-6 gradient-bg text-white font-semibold py-3 px-6 rounded-xl hover:opacity-90">➕ Pridať a analyzovať</button>
+        </div>
+
         <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
             <div class="px-6 py-4 border-b flex justify-between items-center">
                 <h2 class="text-lg font-semibold">Leady: <span class="gradient-text" id="resultsCount">0</span></h2>
@@ -99,100 +129,186 @@
                         <option value="">Všetky</option>
                         <option value="new">🆕 Nové</option>
                         <option value="ready">✨ Ready</option>
-                        <option value="contacted">📧 Kontakt.</option>
+                        <option value="contacted">📧 Kontaktované</option>
+                        <option value="converted">✅ Klienti</option>
                     </select>
-                    <button onclick="loadLeads()" class="px-4 py-2 bg-gray-100 rounded-lg text-sm">🔄</button>
                 </div>
             </div>
+            <div id="emptyList" class="p-12 text-center text-gray-400 hidden">
+                <div class="text-5xl mb-4">📭</div>
+                <p>Zatiaľ žiadne leady. Importuj domény alebo vyhľadaj firmy.</p>
+            </div>
             <div id="leadsList"></div>
-            <div id="emptyList" class="p-12 text-center text-gray-500">Žiadne leady.</div>
         </div>
     </main>
 
+    <!-- Settings Modal -->
     <div id="settingsModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50">
-        <div class="bg-white rounded-2xl p-6 w-full max-w-lg mx-4">
-            <h3 class="text-lg font-semibold mb-4">⚙️ Nastavenia</h3>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Claude API Key</label>
-            <input type="password" id="settingsApiKey" placeholder="sk-ant-api03-..." class="w-full px-4 py-3 rounded-xl border mb-4 font-mono text-sm">
+        <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+            <h2 class="text-xl font-bold mb-6">⚙️ Nastavenia</h2>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Claude API kľúč</label>
+                <input type="password" id="settingsApiKey" placeholder="sk-ant-..." class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none font-mono text-sm">
+                <p class="text-xs text-gray-400 mt-2">Získaj na <a href="https://console.anthropic.com" target="_blank" class="text-adlify-orange">console.anthropic.com</a></p>
+            </div>
             <div class="flex gap-3">
-                <button onclick="saveSettings()" class="flex-1 gradient-bg text-white font-semibold py-2 rounded-xl">Uložiť</button>
-                <button onclick="closeSettings()" class="px-4 py-2 bg-gray-100 rounded-xl">Zrušiť</button>
+                <button onclick="saveSettings()" class="flex-1 gradient-bg text-white font-semibold py-3 rounded-xl">💾 Uložiť</button>
+                <button onclick="closeSettings()" class="px-6 py-3 bg-gray-100 rounded-xl">Zrušiť</button>
             </div>
         </div>
     </div>
 
+    <!-- Status Modal -->
     <div id="statusModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50">
-        <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
-            <h3 class="text-lg font-semibold mb-4">Zmeniť stav</h3>
+        <div class="bg-white rounded-2xl p-8 max-w-sm w-full mx-4">
+            <h2 class="text-xl font-bold mb-6">Zmeniť stav</h2>
             <input type="hidden" id="modalLeadId">
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="setStatus('new')" class="p-3 border rounded-xl hover:bg-gray-50">🆕 Nový</button>
-                <button onclick="setStatus('ready')" class="p-3 border rounded-xl hover:bg-gray-50">✨ Ready</button>
-                <button onclick="setStatus('contacted')" class="p-3 border rounded-xl hover:bg-gray-50">📧 Kontakt.</button>
-                <button onclick="setStatus('converted')" class="p-3 border rounded-xl hover:bg-gray-50">✅ Klient</button>
+                <button onclick="setStatus('new')" class="px-4 py-3 bg-blue-100 text-blue-700 rounded-xl font-medium">🆕 Nový</button>
+                <button onclick="setStatus('ready')" class="px-4 py-3 bg-purple-100 text-purple-700 rounded-xl font-medium">✨ Ready</button>
+                <button onclick="setStatus('contacted')" class="px-4 py-3 bg-orange-100 text-orange-700 rounded-xl font-medium">📧 Kontakt.</button>
+                <button onclick="setStatus('converted')" class="px-4 py-3 bg-green-100 text-green-700 rounded-xl font-medium">✅ Klient</button>
             </div>
-            <button onclick="closeModal()" class="mt-4 w-full py-2 bg-gray-100 rounded-xl">Zrušiť</button>
+            <button onclick="deleteLead()" class="w-full mt-4 px-4 py-3 bg-red-100 text-red-700 rounded-xl font-medium">🗑️ Vymazať</button>
+            <button onclick="closeModal()" class="w-full mt-3 px-4 py-3 bg-gray-100 rounded-xl">Zrušiť</button>
         </div>
     </div>
 
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- NOVÝ: Editor Modal -->
+    <div id="editorModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50 overflow-auto py-8">
+        <div class="bg-white rounded-2xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">✏️ Upraviť prezentáciu</h2>
+                <button onclick="closeEditor()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
+            </div>
+            <input type="hidden" id="editorLeadId">
+            
+            <div class="space-y-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Názov firmy</label>
+                        <input type="text" id="editName" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Doména</label>
+                        <input type="text" id="editDomain" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none" readonly>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Popis firmy</label>
+                    <textarea id="editDesc" rows="3" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Služby (oddeľ čiarkou)</label>
+                    <input type="text" id="editServices" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none" placeholder="servis, diagnostika, pneuservis">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Silné stránky (po riadkoch)</label>
+                        <textarea id="editStrengths" rows="4" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none text-sm"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Slabé stránky (po riadkoch)</label>
+                        <textarea id="editWeaknesses" rows="4" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none text-sm"></textarea>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 rounded-xl p-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Kľúčové slová</label>
+                    <div id="keywordsEditor" class="space-y-2"></div>
+                    <button onclick="addKeywordRow()" class="mt-3 text-sm text-adlify-orange">+ Pridať kľúčové slovo</button>
+                </div>
+                
+                <div class="bg-orange-50 rounded-xl p-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">ROI odhad</label>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="text-xs text-gray-500">Noví zákazníci</label>
+                            <input type="text" id="editRoiCustomers" class="w-full px-3 py-2 rounded-lg border border-gray-200 outline-none text-sm" placeholder="50-80">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500">Priem. útrata</label>
+                            <input type="text" id="editRoiOrder" class="w-full px-3 py-2 rounded-lg border border-gray-200 outline-none text-sm" placeholder="100€">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500">Mesačná tržba</label>
+                            <input type="text" id="editRoiRevenue" class="w-full px-3 py-2 rounded-lg border border-gray-200 outline-none text-sm" placeholder="6,000€">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 mt-8">
+                <button onclick="saveEdits()" class="flex-1 gradient-bg text-white font-semibold py-3 rounded-xl">💾 Uložiť zmeny</button>
+                <button onclick="generateFromEditor()" class="px-6 py-3 bg-purple-100 text-purple-700 rounded-xl font-medium">📄 Generovať</button>
+                <button onclick="closeEditor()" class="px-6 py-3 bg-gray-100 rounded-xl">Zrušiť</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // Config - DOPLŇ SVOJE ÚDAJE
+        const SUPABASE_URL = 'https://xavijlxlnwfvxqksikax.supabase.co';
+        const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhdmlqbHhsbndmdnhxa3Npa2F4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzUzMzk0NzcsImV4cCI6MjA1MDkxNTQ3N30.dBa8VIvmJIuIoTfTB6X_gx5k28vrWlUbLLdsRbxnEQs';
         let CLAUDE_API_KEY = localStorage.getItem('claude_api_key') || '';
-        const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';
-        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // ADLIFY LOGO ako base64
+        const LOGO_WHITE = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgNTAiPjx0ZXh0IHg9IjEwIiB5PSIzNSIgZm9udC1mYW1pbHk9IkludGVyLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjM2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSJ3aGl0ZSI+QURMSUZZPC90ZXh0Pjwvc3ZnPg==';
+        const LOGO_COLOR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgNTAiPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNGRjZCMzUiLz48c3RvcCBvZmZzZXQ9IjUwJSIgc3RvcC1jb2xvcj0iI0U5MUU2MyIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzlDMjdCMCIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjx0ZXh0IHg9IjEwIiB5PSIzNSIgZm9udC1mYW1pbHk9IkludGVyLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjM2IiBmb250LXdlaWdodD0iNzAwIiBmaWxsPSJ1cmwoI2cpIj5BRExJRlk8L3RleHQ+PC9zdmc+';
 
-        function showTab(tab) {
-            document.getElementById('panel-search').classList.toggle('hidden', tab !== 'search');
-            document.getElementById('panel-import').classList.toggle('hidden', tab !== 'import');
-            document.getElementById('tab-search').classList.toggle('bg-adlify-orange', tab === 'search');
-            document.getElementById('tab-search').classList.toggle('text-white', tab === 'search');
-            document.getElementById('tab-search').classList.toggle('bg-gray-100', tab !== 'search');
-            document.getElementById('tab-import').classList.toggle('bg-adlify-orange', tab === 'import');
-            document.getElementById('tab-import').classList.toggle('text-white', tab === 'import');
-            document.getElementById('tab-import').classList.toggle('bg-gray-100', tab !== 'import');
-        }
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            await checkConnection();
-            await loadLeads();
+        const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+        
+        // Init
+        (async () => {
+            const { data, error } = await db.from('leads').select('id').limit(1);
+            document.getElementById('dbStatus').textContent = error ? '❌ DB error' : '✅ Pripojené';
+            document.getElementById('dbStatus').className = 'text-sm px-3 py-1 rounded-full ' + (error ? 'bg-red-500/30' : 'bg-green-500/30');
             await loadStats();
-        });
-
-        async function checkConnection() {
-            try {
-                const { error } = await db.from('leads').select('id', { count: 'exact', head: true });
-                if (error) throw error;
-                document.getElementById('dbStatus').innerHTML = '✅ Pripojené';
-                document.getElementById('dbStatus').className = 'text-sm bg-green-500/30 px-3 py-1 rounded-full';
-            } catch (e) {
-                document.getElementById('dbStatus').innerHTML = '❌ Chyba';
-                document.getElementById('dbStatus').className = 'text-sm bg-red-500/30 px-3 py-1 rounded-full';
-            }
-        }
+            await loadLeads();
+        })();
 
         async function loadStats() {
             const { data } = await db.from('leads').select('status');
             if (!data) return;
             document.getElementById('totalLeads').textContent = data.length;
-            document.getElementById('newLeads').textContent = data.filter(l => l.status === 'new' || l.status === 'ready').length;
+            document.getElementById('newLeads').textContent = data.filter(l => l.status === 'new').length;
             document.getElementById('contactedLeads').textContent = data.filter(l => l.status === 'contacted').length;
             document.getElementById('convertedLeads').textContent = data.filter(l => l.status === 'converted').length;
         }
 
         async function loadLeads() {
             const filter = document.getElementById('statusFilter').value;
-            let query = db.from('leads').select('*').order('score', { ascending: false });
+            let query = db.from('leads').select('*').order('created_at', { ascending: false });
             if (filter) query = query.eq('status', filter);
             const { data } = await query;
             renderLeads(data || []);
         }
 
-        function handleSearch() {
+        function showTab(tab) {
+            ['search', 'import', 'manual'].forEach(t => {
+                document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
+                document.getElementById('tab-' + t).classList.toggle('bg-adlify-orange', t === tab);
+                document.getElementById('tab-' + t).classList.toggle('text-white', t === tab);
+                document.getElementById('tab-' + t).classList.toggle('bg-gray-100', t !== tab);
+                document.getElementById('tab-' + t).classList.toggle('text-gray-700', t !== tab);
+            });
+        }
+
+        async function handleSearch() {
             const trade = document.getElementById('trade').value.trim();
             const city = document.getElementById('city').value.trim();
-            if (!trade || !city) return alert('Vyplň obe polia');
-            alert('Pre "' + trade + ' ' + city + '":\n1. Hľadaj na Google\n2. Skopíruj domény\n3. Vlož do Import');
+            if (!trade || !city) return alert('Vyplň remeslo aj mesto');
+            document.getElementById('searchBtn').textContent = '⏳ Hľadám...';
+            document.getElementById('searchBtn').disabled = true;
+            // Tu by bola integrácia s Mapy.cz API alebo iným zdrojom
+            setTimeout(() => {
+                alert('🔍 Vyhľadávanie je v príprave. Použi zatiaľ Import alebo Manuálne pridanie.');
+                document.getElementById('searchBtn').textContent = '🔍 Vyhľadať';
+                document.getElementById('searchBtn').disabled = false;
+            }, 1000);
         }
 
         async function handleImport() {
@@ -214,35 +330,144 @@
             await loadStats();
         }
 
+        // NOVÁ FUNKCIA: Manuálne pridanie firmy bez webu
+        async function handleManualAdd() {
+            const name = document.getElementById('manualName').value.trim();
+            const industry = document.getElementById('manualIndustry').value.trim();
+            const city = document.getElementById('manualCity').value.trim();
+            const email = document.getElementById('manualEmail').value.trim();
+            const desc = document.getElementById('manualDesc').value.trim();
+            
+            if (!name || !industry || !city) return alert('Vyplň názov, odvetvie a mesto');
+            
+            // Vytvor "fake" doménu z názvu
+            const fakeDomain = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '') + '.local';
+            
+            const { data: existing } = await db.from('leads').select('id').eq('domain', fakeDomain).single();
+            if (existing) return alert('Firma s týmto názvom už existuje');
+            
+            const { data: newLead } = await db.from('leads').insert({ 
+                domain: fakeDomain, 
+                company_name: name, 
+                email: email || null,
+                status: 'new', 
+                score: 50,
+                notes: 'Odvetvie: ' + industry + ', Mesto: ' + city + (desc ? ', ' + desc : '')
+            }).select().single();
+            
+            // Vynuluj formulár
+            document.getElementById('manualName').value = '';
+            document.getElementById('manualIndustry').value = '';
+            document.getElementById('manualCity').value = '';
+            document.getElementById('manualEmail').value = '';
+            document.getElementById('manualDesc').value = '';
+            
+            await loadLeads();
+            await loadStats();
+            
+            // Ponúkni okamžitú analýzu
+            if (confirm('✅ Firma pridaná! Chceš ju hneď analyzovať?')) {
+                await analyzeManualLead(newLead.id, name, industry, city, desc);
+            }
+        }
+
+        // NOVÁ FUNKCIA: Analýza manuálne pridanej firmy
+        async function analyzeManualLead(id, name, industry, city, desc) {
+            if (!CLAUDE_API_KEY) { alert('Nastav Claude API kľúč v ⚙️'); openSettings(); return; }
+            await db.from('leads').update({ status: 'analyzing' }).eq('id', id);
+            await loadLeads();
+            
+            try {
+                const prompt = `Analyzuj firmu pre účely online marketingu:
+Názov: ${name}
+Odvetvie: ${industry}
+Mesto: ${city}
+${desc ? 'Popis: ' + desc : ''}
+
+Firma NEMÁ webstránku, preto:
+1. Navrhni čo by mala web stránka obsahovať
+2. Zameraj sa na príležitosti v online marketingu pre lokálny biznis bez webu
+3. Odporuč ako môže firma začať s online prezenciou
+
+Vráť PRESNE tento JSON formát (po slovensky):
+{
+  "company_name": "${name}",
+  "description": "Stručný popis firmy a jej služieb (2-3 vety)",
+  "services": ["služba1", "služba2", "služba3", "služba4", "služba5"],
+  "strengths": [
+    "Silná stránka 1 - konkrétna výhoda",
+    "Silná stránka 2 - konkrétna výhoda"
+  ],
+  "weaknesses": [
+    "Chýba webstránka - zákazníci vás nemôžu nájsť online",
+    "Slabá online prezencia - konkurencia vás predbieha",
+    "Ďalšia príležitosť na zlepšenie"
+  ],
+  "potential": "Vysoký - ${industry} v ${city} má dopyt po kvalitných službách",
+  "keywords": [
+    {"keyword": "${industry} ${city}", "volume": 500, "difficulty": "medium"},
+    {"keyword": "najlepší ${industry} ${city}", "volume": 200, "difficulty": "easy"},
+    {"keyword": "${industry} cena", "volume": 300, "difficulty": "easy"},
+    {"keyword": "${industry} recenzie", "volume": 150, "difficulty": "easy"},
+    {"keyword": "${industry} odporúčanie", "volume": 100, "difficulty": "easy"}
+  ],
+  "roi_estimate": {
+    "new_customers": "40-70",
+    "avg_order": "určíš podľa odvetvia",
+    "monthly_revenue": "vypočítaj realisticky"
+  }
+}`;
+
+                const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': CLAUDE_API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+                    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] })
+                });
+                
+                const data = await apiRes.json();
+                const text = data.content[0].text;
+                const match = text.match(/\{[\s\S]*\}/);
+                const analysis = JSON.parse(match ? match[0] : text);
+                
+                await db.from('leads').update({ status: 'ready', analysis, score: 75 }).eq('id', id);
+                alert('✅ Analýza hotová!');
+            } catch(e) {
+                alert('❌ Chyba: ' + e.message);
+                await db.from('leads').update({ status: 'new' }).eq('id', id);
+            }
+            await loadLeads(); await loadStats();
+        }
+
         function renderLeads(leads) {
             document.getElementById('resultsCount').textContent = leads.length;
             document.getElementById('emptyList').classList.toggle('hidden', leads.length > 0);
-            document.getElementById('leadsList').innerHTML = leads.map(lead => 
-                '<div class="px-6 py-4 border-b hover:bg-gray-50 flex items-center justify-between">' +
+            document.getElementById('leadsList').innerHTML = leads.map(lead => {
+                const isLocal = lead.domain?.endsWith('.local');
+                return '<div class="px-6 py-4 border-b hover:bg-gray-50 flex items-center justify-between">' +
                     '<div>' +
                         '<div class="flex items-center gap-3 mb-1">' +
                             '<strong>' + (lead.company_name || lead.domain) + '</strong>' +
-                            '<a href="https://' + lead.domain + '" target="_blank" class="text-sm text-adlify-orange">' + lead.domain + '</a>' +
+                            (isLocal ? '<span class="text-xs bg-gray-100 px-2 py-0.5 rounded">bez webu</span>' : '<a href="https://' + lead.domain + '" target="_blank" class="text-sm text-adlify-orange">' + lead.domain + '</a>') +
                             '<span class="px-2 py-0.5 rounded text-xs ' + getStatusClass(lead.status) + '">' + getStatusText(lead.status) + '</span>' +
                         '</div>' +
                         '<div class="text-sm text-gray-500">' +
                             (lead.email ? '📧 ' + lead.email + ' ' : '') +
-                            (lead.facebook ? '<a href="' + lead.facebook + '" class="text-blue-600">FB</a> ' : '') +
-                            (lead.instagram ? '<a href="' + lead.instagram + '" class="text-pink-600">IG</a>' : '') +
+                            (lead.notes ? '<span class="text-gray-400">' + lead.notes.substring(0, 50) + '...</span>' : '') +
                         '</div>' +
                     '</div>' +
                     '<div class="flex items-center gap-2">' +
                         '<span class="px-3 py-1 rounded-full text-sm font-semibold ' + getScoreClass(lead.score) + '">⭐' + lead.score + '</span>' +
-                        (lead.status === 'new' ? '<button onclick="analyzeLead(\'' + lead.id + '\', \'' + lead.domain + '\')" class="px-3 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm">🤖 Analyzovať</button>' : '') +
+                        (lead.status === 'new' && !isLocal ? '<button onclick="analyzeLead(\'' + lead.id + '\', \'' + lead.domain + '\')" class="px-3 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm">🤖 Analyzovať</button>' : '') +
+                        (lead.analysis ? '<button onclick="openEditor(\'' + lead.id + '\')" class="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm">✏️ Upraviť</button>' : '') +
                         (lead.analysis ? '<button onclick="generatePresentation(\'' + lead.id + '\')" class="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm">📄 Prezentácia</button>' : '') +
                         '<button onclick="openModal(\'' + lead.id + '\')" class="px-3 py-2 bg-gray-100 rounded-lg text-sm">⚙️</button>' +
                     '</div>' +
-                '</div>'
-            ).join('');
+                '</div>';
+            }).join('');
         }
 
-        function getStatusClass(s) { return { new: 'bg-blue-100 text-blue-700', ready: 'bg-purple-100 text-purple-700', contacted: 'bg-orange-100 text-orange-700', converted: 'bg-green-100 text-green-700' }[s] || 'bg-gray-100'; }
-        function getStatusText(s) { return { new: '🆕 Nový', ready: '✨ Ready', contacted: '📧 Kontakt.', converted: '✅ Klient' }[s] || s; }
+        function getStatusClass(s) { return { new: 'bg-blue-100 text-blue-700', ready: 'bg-purple-100 text-purple-700', contacted: 'bg-orange-100 text-orange-700', converted: 'bg-green-100 text-green-700', analyzing: 'bg-yellow-100 text-yellow-700' }[s] || 'bg-gray-100'; }
+        function getStatusText(s) { return { new: '🆕 Nový', ready: '✨ Ready', contacted: '📧 Kontakt.', converted: '✅ Klient', analyzing: '⏳ Analyzujem...' }[s] || s; }
         function getScoreClass(score) { return score >= 80 ? 'bg-green-100 text-green-700' : score >= 60 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'; }
 
         function openSettings() { document.getElementById('settingsApiKey').value = CLAUDE_API_KEY; document.getElementById('settingsModal').classList.remove('hidden'); }
@@ -254,10 +479,113 @@
             await db.from('leads').update({ status }).eq('id', document.getElementById('modalLeadId').value);
             closeModal(); await loadLeads(); await loadStats();
         }
+        async function deleteLead() {
+            if (!confirm('Naozaj vymazať?')) return;
+            await db.from('leads').delete().eq('id', document.getElementById('modalLeadId').value);
+            closeModal(); await loadLeads(); await loadStats();
+        }
 
         document.getElementById('settingsModal').onclick = e => { if (e.target.id === 'settingsModal') closeSettings(); };
         document.getElementById('statusModal').onclick = e => { if (e.target.id === 'statusModal') closeModal(); };
+        document.getElementById('editorModal').onclick = e => { if (e.target.id === 'editorModal') closeEditor(); };
 
+        // EDITOR FUNKCIE
+        let currentEditLead = null;
+        
+        async function openEditor(id) {
+            const { data: lead } = await db.from('leads').select('*').eq('id', id).single();
+            if (!lead?.analysis) return alert('Najprv analyzuj');
+            currentEditLead = lead;
+            const a = lead.analysis;
+            
+            document.getElementById('editorLeadId').value = id;
+            document.getElementById('editName').value = a.company_name || '';
+            document.getElementById('editDomain').value = lead.domain || '';
+            document.getElementById('editDesc').value = a.description || '';
+            document.getElementById('editServices').value = (a.services || []).join(', ');
+            document.getElementById('editStrengths').value = (a.strengths || []).join('\n');
+            document.getElementById('editWeaknesses').value = (a.weaknesses || []).join('\n');
+            document.getElementById('editRoiCustomers').value = a.roi_estimate?.new_customers || '';
+            document.getElementById('editRoiOrder').value = a.roi_estimate?.avg_order || '';
+            document.getElementById('editRoiRevenue').value = a.roi_estimate?.monthly_revenue || '';
+            
+            // Keywords
+            const kwEditor = document.getElementById('keywordsEditor');
+            kwEditor.innerHTML = '';
+            (a.keywords || []).forEach((kw, i) => addKeywordRow(kw.keyword, kw.volume, kw.difficulty));
+            if (!a.keywords?.length) addKeywordRow();
+            
+            document.getElementById('editorModal').classList.remove('hidden');
+        }
+        
+        function closeEditor() {
+            document.getElementById('editorModal').classList.add('hidden');
+            currentEditLead = null;
+        }
+        
+        function addKeywordRow(keyword = '', volume = 100, difficulty = 'medium') {
+            const div = document.createElement('div');
+            div.className = 'flex gap-2 items-center';
+            div.innerHTML = `
+                <input type="text" value="${keyword}" placeholder="kľúčové slovo" class="flex-1 px-3 py-2 rounded-lg border border-gray-200 outline-none text-sm kw-keyword">
+                <input type="number" value="${volume}" placeholder="objem" class="w-20 px-3 py-2 rounded-lg border border-gray-200 outline-none text-sm kw-volume">
+                <select class="px-3 py-2 rounded-lg border border-gray-200 outline-none text-sm kw-diff">
+                    <option value="easy" ${difficulty === 'easy' ? 'selected' : ''}>Nízka</option>
+                    <option value="medium" ${difficulty === 'medium' ? 'selected' : ''}>Stredná</option>
+                    <option value="hard" ${difficulty === 'hard' ? 'selected' : ''}>Vysoká</option>
+                </select>
+                <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600">✕</button>
+            `;
+            document.getElementById('keywordsEditor').appendChild(div);
+        }
+        
+        function getEditorData() {
+            const keywords = [];
+            document.querySelectorAll('#keywordsEditor > div').forEach(row => {
+                const kw = row.querySelector('.kw-keyword').value.trim();
+                if (kw) {
+                    keywords.push({
+                        keyword: kw,
+                        volume: parseInt(row.querySelector('.kw-volume').value) || 100,
+                        difficulty: row.querySelector('.kw-diff').value
+                    });
+                }
+            });
+            
+            return {
+                company_name: document.getElementById('editName').value.trim(),
+                description: document.getElementById('editDesc').value.trim(),
+                services: document.getElementById('editServices').value.split(',').map(s => s.trim()).filter(s => s),
+                strengths: document.getElementById('editStrengths').value.split('\n').map(s => s.trim()).filter(s => s),
+                weaknesses: document.getElementById('editWeaknesses').value.split('\n').map(s => s.trim()).filter(s => s),
+                keywords: keywords,
+                roi_estimate: {
+                    new_customers: document.getElementById('editRoiCustomers').value.trim(),
+                    avg_order: document.getElementById('editRoiOrder').value.trim(),
+                    monthly_revenue: document.getElementById('editRoiRevenue').value.trim()
+                }
+            };
+        }
+        
+        async function saveEdits() {
+            const id = document.getElementById('editorLeadId').value;
+            const analysis = getEditorData();
+            await db.from('leads').update({ analysis, company_name: analysis.company_name }).eq('id', id);
+            alert('✅ Zmeny uložené');
+            closeEditor();
+            await loadLeads();
+        }
+        
+        function generateFromEditor() {
+            const analysis = getEditorData();
+            const lead = { ...currentEditLead, analysis };
+            const html = getPresentationHTML(lead, analysis);
+            const win = window.open('', '_blank');
+            win.document.write(html);
+            win.document.close();
+        }
+
+        // ROZŠÍRENÝ AI PROMPT
         async function analyzeLead(id, domain) {
             if (!CLAUDE_API_KEY) { alert('Nastav Claude API kľúč v ⚙️'); openSettings(); return; }
             await db.from('leads').update({ status: 'analyzing' }).eq('id', id);
@@ -269,29 +597,67 @@
                     if (res.ok) {
                         const html = await res.text();
                         const doc = new DOMParser().parseFromString(html, 'text/html');
-                        doc.querySelectorAll('script,style,nav,footer').forEach(e => e.remove());
-                        content = (doc.body?.innerText || '').substring(0, 5000);
+                        doc.querySelectorAll('script,style,nav,footer,header').forEach(e => e.remove());
+                        content = (doc.body?.innerText || '').substring(0, 8000);
                     }
-                } catch(e) {}
+                } catch(e) { console.log('Web fetch failed:', e); }
                 
+                const prompt = `Si expert na online marketing pre slovenské malé firmy. Analyzuj firmu ${domain} pre účely návrhu marketingovej kampane.
+
+${content ? 'OBSAH WEBSTRÁNKY:\n' + content + '\n\n' : 'Web sa nepodarilo načítať, analyzuj podľa domény.'}
+
+Vytvor detailnú analýzu a vráť PRESNE tento JSON formát (všetko po slovensky):
+{
+  "company_name": "Oficiálny názov firmy",
+  "description": "Profesionálny popis firmy v 2-3 vetách - čo robia, pre koho, aké majú výhody",
+  "services": ["hlavná služba", "služba 2", "služba 3", "služba 4", "služba 5"],
+  "strengths": [
+    "Konkrétna silná stránka 1 - napr. dlhoročné skúsenosti",
+    "Konkrétna silná stránka 2 - napr. kvalitné vybavenie",
+    "Konkrétna silná stránka 3 - napr. široký sortiment"
+  ],
+  "weaknesses": [
+    "Príležitosť 1 - napr. web nemá SSL certifikát",
+    "Príležitosť 2 - napr. chýba Google profil firmy",
+    "Príležitosť 3 - napr. málo recenzií online"
+  ],
+  "potential": "Vysoký/Stredný/Nízky - s krátkym odôvodnením",
+  "keywords": [
+    {"keyword": "hlavné kľúčové slovo", "volume": 500, "difficulty": "medium"},
+    {"keyword": "sekundárne slovo", "volume": 300, "difficulty": "easy"},
+    {"keyword": "lokálne slovo mesto", "volume": 200, "difficulty": "easy"},
+    {"keyword": "long tail fráza", "volume": 100, "difficulty": "easy"},
+    {"keyword": "ďalšie relevantné", "volume": 150, "difficulty": "medium"}
+  ],
+  "roi_estimate": {
+    "new_customers": "realistický odhad napr. 30-50",
+    "avg_order": "priemerná útrata v € podľa odvetvia",
+    "monthly_revenue": "mesačná tržba z reklamy v €"
+  }
+}
+
+DÔLEŽITÉ:
+- Všetky texty musia byť po slovensky
+- Buď konkrétny a realistický v odhadoch
+- Keywords musia byť relevantné pre slovenský trh
+- ROI odhad musí zodpovedať typu biznisu`;
+
                 const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': CLAUDE_API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-                    body: JSON.stringify({
-                        model: 'claude-sonnet-4-20250514',
-                        max_tokens: 2000,
-                        messages: [{ role: 'user', content: 'Analyzuj firmu ' + domain + '. ' + (content ? 'Web: ' + content : '') + '\n\nVráť JSON: {"company_name":"","description":"","services":[],"strengths":[],"weaknesses":[],"potential":"","keywords":[{"keyword":"","volume":100,"difficulty":"easy"}],"roi_estimate":{"new_customers":"30-50","avg_order":"80€","monthly_revenue":"3000€"}}' }]
-                    })
+                    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 2500, messages: [{ role: 'user', content: prompt }] })
                 });
                 
                 const data = await apiRes.json();
+                if (data.error) throw new Error(data.error.message);
                 const text = data.content[0].text;
                 const match = text.match(/\{[\s\S]*\}/);
                 const analysis = JSON.parse(match ? match[0] : text);
                 
                 await db.from('leads').update({ status: 'ready', analysis, company_name: analysis.company_name || domain.split('.')[0], score: 80 }).eq('id', id);
-                alert('✅ Hotovo!');
+                alert('✅ Analýza hotová!');
             } catch(e) {
+                console.error(e);
                 alert('❌ Chyba: ' + e.message);
                 await db.from('leads').update({ status: 'new' }).eq('id', id);
             }
@@ -318,6 +684,7 @@
                 var diffHtml = diff === 'easy' ? '<span style="color:#4CAF50">● Nízka</span>' : (diff === 'hard' ? '<span style="color:#f44">● Vysoká</span>' : '<span style="color:#FF9800">● Stredná</span>');
                 return '<tr><td><strong>' + k.keyword + '</strong></td><td>' + (k.volume || 100) + '/mes</td><td>' + diffHtml + '</td></tr>'; 
             }).join('');
+            var isLocal = lead.domain?.endsWith('.local');
             
             return '<!DOCTYPE html><html lang="sk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Návrh - ' + name + '</title>' +
                 '<style>' +
@@ -331,7 +698,8 @@
                 '.slide-title .subtitle{font-size:1.3rem;color:rgba(255,255,255,0.9);font-weight:300}' +
                 '.company-badge{background:rgba(255,255,255,0.2);padding:12px 35px;border-radius:50px;margin-top:35px}' +
                 '.company-badge span{color:white;font-weight:600;font-size:1.1rem}' +
-                '.adlify-logo{position:absolute;bottom:25px;right:35px;color:rgba(255,255,255,0.8);font-size:0.85rem;font-weight:600}' +
+                '.adlify-logo{position:absolute;bottom:25px;right:35px;height:30px}' +
+                '.adlify-logo-top{position:absolute;top:25px;left:35px;height:25px;opacity:0.8}' +
                 '.slide-content{padding:45px}' +
                 '.slide-header{display:flex;align-items:center;gap:15px;margin-bottom:35px;padding-bottom:18px;border-bottom:3px solid;border-image:var(--gradient) 1}' +
                 '.slide-header .number{width:45px;height:45px;background:var(--gradient);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:1.2rem}' +
@@ -352,6 +720,7 @@
                 '.keywords-table{width:100%;border-collapse:collapse}' +
                 '.keywords-table th{text-align:left;padding:10px;border-bottom:1px solid rgba(255,255,255,0.2);font-weight:500;font-size:0.8rem;color:rgba(255,255,255,0.7)}' +
                 '.keywords-table td{padding:10px;border-bottom:1px solid rgba(255,255,255,0.1);font-size:0.85rem}' +
+                '.keywords-note{margin-top:15px;padding:12px;background:rgba(255,255,255,0.1);border-radius:8px;font-size:0.75rem;color:rgba(255,255,255,0.7)}' +
                 '.packages-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:25px}' +
                 '.package-card{background:white;border-radius:14px;padding:22px;border:2px solid #eee;position:relative}' +
                 '.package-card.recommended{border-color:var(--orange);box-shadow:0 8px 30px rgba(255,107,53,0.2)}' +
@@ -364,6 +733,7 @@
                 '.package-features li::before{content:"✓ ";color:#4CAF50;font-weight:bold}' +
                 '.budget-section{background:#fff8f0;border-radius:14px;padding:22px;border:2px dashed var(--orange)}' +
                 '.budget-section h4{color:var(--orange);font-size:0.95rem;margin-bottom:12px}' +
+                '.budget-note{margin-top:12px;font-size:0.75rem;color:var(--gray);font-style:italic}' +
                 '.budget-options{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}' +
                 '.budget-option{background:white;border-radius:10px;padding:15px;text-align:center}' +
                 '.budget-option .amount{font-size:1.3rem;font-weight:700}' +
@@ -373,7 +743,9 @@
                 '.roi-card{background:var(--gradient);border-radius:14px;padding:25px;text-align:center;color:white}' +
                 '.roi-card .value{font-size:2rem;font-weight:700;margin-bottom:5px}' +
                 '.roi-card .label{font-size:0.8rem;opacity:0.9}' +
-                '.slide-cta{min-height:400px;background:var(--gradient);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:50px;color:white}' +
+                '.calculation{background:var(--light);border-radius:14px;padding:25px;margin-top:25px}' +
+                '.calculation h4{margin-bottom:12px}' +
+                '.slide-cta{min-height:400px;background:var(--gradient);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:50px;color:white;position:relative}' +
                 '.slide-cta h2{font-size:2.5rem;font-weight:700;margin-bottom:15px}' +
                 '.slide-cta p{font-size:1.1rem;opacity:0.9;max-width:600px;margin-bottom:35px}' +
                 '.cta-buttons{display:flex;gap:15px}' +
@@ -382,15 +754,20 @@
                 '.btn-outline{border:2px solid white;color:white;background:transparent}' +
                 '.contact-info{margin-top:30px;font-size:0.95rem}' +
                 '.contact-info a{color:white}' +
+                '.cta-logo{margin-bottom:30px;height:45px}' +
+                '@media print{.slide{box-shadow:none;margin:0;page-break-after:always}}' +
                 '</style></head><body>' +
                 
+                // SLIDE 1: Titulka s logom
                 '<div class="slide"><div class="slide-title">' +
+                '<img src="' + LOGO_WHITE + '" class="adlify-logo-top" alt="Adlify">' +
                 '<h1>' + name + '</h1>' +
                 '<div class="subtitle">Návrh online marketingovej stratégie</div>' +
-                '<div class="company-badge"><span>🌐 ' + lead.domain + '</span></div>' +
-                '<div class="adlify-logo">ADLIFY</div>' +
+                (isLocal ? '' : '<div class="company-badge"><span>🌐 ' + lead.domain + '</span></div>') +
+                '<img src="' + LOGO_WHITE + '" class="adlify-logo" alt="Adlify">' +
                 '</div></div>' +
                 
+                // SLIDE 2: O biznise
                 '<div class="slide"><div class="slide-content">' +
                 '<div class="slide-header"><div class="number">1</div><h2>O vašom biznise</h2></div>' +
                 '<div class="cards-grid">' +
@@ -404,6 +781,7 @@
                 '</div>' +
                 '</div></div>' +
                 
+                // SLIDE 3: Analýza
                 '<div class="slide"><div class="slide-content">' +
                 '<div class="slide-header"><div class="number">2</div><h2>Čo sme zistili</h2></div>' +
                 '<div class="cards-grid">' +
@@ -412,9 +790,12 @@
                 '</div>' +
                 '<div class="keywords-section"><h4>🔍 Top kľúčové slová pre vašu firmu</h4>' +
                 '<table class="keywords-table"><thead><tr><th>Kľúčové slovo</th><th>Hľadanosť</th><th>Konkurencia</th></tr></thead>' +
-                '<tbody>' + keywords + '</tbody></table></div>' +
+                '<tbody>' + keywords + '</tbody></table>' +
+                '<div class="keywords-note">💡 <strong>Vysvetlivka:</strong> Hľadanosť = počet vyhľadávaní mesačne na Google v SR. Konkurencia = ako ťažké je sa umiestniť na prvej strane.</div>' +
+                '</div>' +
                 '</div></div>' +
                 
+                // SLIDE 4: Cenník
                 '<div class="slide"><div class="slide-content">' +
                 '<div class="slide-header"><div class="number">3</div><h2>Návrh spolupráce</h2></div>' +
                 '<div class="packages-grid">' +
@@ -422,14 +803,17 @@
                 '<div class="package-card recommended"><h3>⭐ Pro</h3><div class="price">249€</div><div class="period">/ mesiac</div><ul class="package-features"><li>2 platformy (FB/IG + Google)</li><li>3 kampane súčasne</li><li>4 reklamné vizuály</li><li>A/B testovanie</li><li>Detailný report</li></ul></div>' +
                 '<div class="package-card"><h3>💎 Enterprise</h3><div class="price">399€</div><div class="period">/ mesiac</div><ul class="package-features"><li>Všetky platformy + remarketing</li><li>5 kampaní súčasne</li><li>8 reklamných vizuálov</li><li>Strategické konzultácie</li><li>Prioritná podpora</li></ul></div>' +
                 '</div>' +
-                '<div class="budget-section"><h4>💰 Odporúčaný reklamný rozpočet (platíte priamo Googlu/Mete)</h4>' +
+                '<div class="budget-section"><h4>💰 Odporúčaný reklamný rozpočet</h4>' +
                 '<div class="budget-options">' +
                 '<div class="budget-option"><div class="amount">250€</div><div class="desc">Konzervatívny štart</div></div>' +
                 '<div class="budget-option recommended"><div class="amount">450€</div><div class="desc">Optimálny výkon</div></div>' +
                 '<div class="budget-option"><div class="amount">700€</div><div class="desc">Agresívny rast</div></div>' +
-                '</div></div>' +
+                '</div>' +
+                '<div class="budget-note">* Reklamný rozpočet platíte priamo Googlu/Mete, nie nám. My spravujeme kampane a optimalizujeme výkon.</div>' +
+                '</div>' +
                 '</div></div>' +
                 
+                // SLIDE 5: ROI
                 '<div class="slide"><div class="slide-content">' +
                 '<div class="slide-header"><div class="number">4</div><h2>Predpokladaná návratnosť</h2></div>' +
                 '<p style="color:var(--gray);margin-bottom:25px">Pri balíku Pro (249€) a odporúčanom rozpočte 450€/mesiac:</p>' +
@@ -439,24 +823,25 @@
                 '<div class="roi-card"><div class="value">' + (a.roi_estimate?.new_customers || '50-80') + '</div><div class="label">Nových zákazníkov</div></div>' +
                 '<div class="roi-card"><div class="value">5-8x</div><div class="label">Návratnosť</div></div>' +
                 '</div>' +
-                '<div style="background:var(--light);border-radius:14px;padding:25px;margin-top:25px">' +
-                '<h4 style="margin-bottom:12px">📊 Príklad výpočtu návratnosti:</h4>' +
-                '<p style="color:var(--gray);line-height:1.8"><strong>Investícia:</strong> 249€ + 450€ = <strong>699€/mesiac</strong><br>' +
-                '<strong>Noví zákazníci:</strong> ~60 mesačne<br>' +
+                '<div class="calculation"><h4>📊 Príklad výpočtu návratnosti:</h4>' +
+                '<p style="color:var(--gray);line-height:1.8"><strong>Mesačná investícia:</strong> 249€ (správa Pro) + 450€ (reklama) = <strong>699€</strong><br>' +
+                '<strong>Noví zákazníci:</strong> ~' + (a.roi_estimate?.new_customers || '60').toString().split('-')[0] + ' mesačne<br>' +
                 '<strong>Priemerná útrata:</strong> ' + (a.roi_estimate?.avg_order || '100€') + '<br>' +
                 '<strong>Tržba z reklamy:</strong> <strong>' + (a.roi_estimate?.monthly_revenue || '6,000€') + '</strong><br>' +
-                '<strong style="color:#4CAF50">Čistá návratnosť: +' + (parseInt((a.roi_estimate?.monthly_revenue || '6000').replace(/[^0-9]/g,'')) - 699) + '€</strong></p>' +
+                '<strong style="color:#4CAF50">Čistá návratnosť: +' + (parseInt((a.roi_estimate?.monthly_revenue || '6000').toString().replace(/[^0-9]/g,'')) - 699) + '€ mesačne</strong></p>' +
                 '</div>' +
                 '</div></div>' +
                 
+                // SLIDE 6: CTA s logom
                 '<div class="slide"><div class="slide-cta">' +
+                '<img src="' + LOGO_WHITE + '" class="cta-logo" alt="Adlify">' +
                 '<h2>Začnime spoluprácu</h2>' +
-                '<p>Dohodnite si nezáväznú konzultáciu a preberieme, ako vám vieme pomôcť získať viac zákazníkov.</p>' +
+                '<p>Dohodnite si nezáväznú konzultáciu a preberieme, ako vám vieme pomôcť získať viac zákazníkov cez online reklamu.</p>' +
                 '<div class="cta-buttons">' +
-                '<a href="mailto:info@adlify.eu?subject=Mám záujem - ' + name + '" class="btn btn-white">✓ Mám záujem</a>' +
-                '<a href="mailto:info@adlify.eu?subject=Otázka - ' + name + '" class="btn btn-outline">Mám otázky</a>' +
+                '<a href="mailto:info@adlify.eu?subject=Mám záujem - ' + encodeURIComponent(name) + '" class="btn btn-white">✓ Mám záujem</a>' +
+                '<a href="mailto:info@adlify.eu?subject=Otázka - ' + encodeURIComponent(name) + '" class="btn btn-outline">Mám otázky</a>' +
                 '</div>' +
-                '<div class="contact-info">📧 info@adlify.eu &nbsp;|&nbsp; 🌐 adlify.eu</div>' +
+                '<div class="contact-info">📧 <a href="mailto:info@adlify.eu">info@adlify.eu</a> &nbsp;|&nbsp; 🌐 <a href="https://adlify.eu" target="_blank">adlify.eu</a></div>' +
                 '</div></div>' +
                 
                 '</body></html>';
