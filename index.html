@@ -244,14 +244,12 @@ autoservisjurik.sk
     <script>
         // Claude API key - will be entered by user in settings
         let CLAUDE_API_KEY = localStorage.getItem('claude_api_key') || '';
-    </script>
-
-    <script>
+        
         // Supabase setup
         const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';
         
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // Tab switching
         function showTab(tab) {
@@ -273,7 +271,7 @@ autoservisjurik.sk
 
         async function checkConnection() {
             try {
-                const { count, error } = await supabase.from('leads').select('*', { count: 'exact', head: true });
+                const { count, error } = await supabaseClient.from('leads').select('*', { count: 'exact', head: true });
                 if (error) throw error;
                 document.getElementById('dbStatus').innerHTML = '✅ Pripojené';
                 document.getElementById('dbStatus').className = 'text-sm bg-green-500/30 px-3 py-1 rounded-full';
@@ -285,7 +283,7 @@ autoservisjurik.sk
         }
 
         async function loadStats() {
-            const { data: leads } = await supabase.from('leads').select('status');
+            const { data: leads } = await supabaseClient.from('leads').select('status');
             if (!leads) return;
             
             document.getElementById('totalLeads').textContent = leads.length;
@@ -297,7 +295,7 @@ autoservisjurik.sk
         async function loadLeads() {
             const statusFilter = document.getElementById('statusFilter').value;
             
-            let query = supabase.from('leads').select('*').order('score', { ascending: false });
+            let query = supabaseClient.from('leads').select('*').order('score', { ascending: false });
             if (statusFilter) {
                 query = query.eq('status', statusFilter);
             }
@@ -354,10 +352,10 @@ autoservisjurik.sk
             for (const domain of domains) {
                 const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
                 
-                const { data: existing } = await supabase.from('leads').select('id').eq('domain', cleanDomain).single();
+                const { data: existing } = await supabaseClient.from('leads').select('id').eq('domain', cleanDomain).single();
                 
                 if (!existing) {
-                    const { error } = await supabase.from('leads').insert({
+                    const { error } = await supabaseClient.from('leads').insert({
                         domain: cleanDomain,
                         company_name: cleanDomain.split('.')[0],
                         source_query: query || null,
@@ -381,7 +379,7 @@ autoservisjurik.sk
 
         // Export domains for Marketing Miner
         async function exportDomainsForMM() {
-            const { data: leads } = await supabase.from('leads').select('domain').is('email', null);
+            const { data: leads } = await supabaseClient.from('leads').select('domain').is('email', null);
             
             if (!leads || leads.length === 0) {
                 alert('Žiadne domény na export (všetky už majú kontakty)');
@@ -565,13 +563,13 @@ autoservisjurik.sk
         }
 
         async function setStatusDirect(id, status) {
-            await supabase.from('leads').update({ status }).eq('id', id);
+            await supabaseClient.from('leads').update({ status }).eq('id', id);
             await loadLeads();
             await loadStats();
         }
 
         async function markAsContacted(id) {
-            await supabase.from('leads').update({ 
+            await supabaseClient.from('leads').update({ 
                 status: 'contacted',
                 contacted_at: new Date().toISOString()
             }).eq('id', id);
@@ -592,7 +590,7 @@ autoservisjurik.sk
             const id = document.getElementById('modalLeadId').value;
             const updateData = { status };
             if (status === 'contacted') updateData.contacted_at = new Date().toISOString();
-            await supabase.from('leads').update(updateData).eq('id', id);
+            await supabaseClient.from('leads').update(updateData).eq('id', id);
             closeModal();
             await loadLeads();
             await loadStats();
@@ -645,7 +643,7 @@ autoservisjurik.sk
             }
 
             // Update status to analyzing
-            await supabase.from('leads').update({ status: 'analyzing' }).eq('id', id);
+            await supabaseClient.from('leads').update({ status: 'analyzing' }).eq('id', id);
             await loadLeads();
 
             try {
@@ -748,7 +746,7 @@ Odpovedz LEN s JSON, žiadny iný text.`
                 console.log('Parsed analysis:', analysis);
 
                 // Update lead with analysis
-                await supabase.from('leads').update({
+                await supabaseClient.from('leads').update({
                     status: 'ready',
                     analysis: analysis,
                     company_name: analysis.company_name || domain.split('.')[0],
@@ -760,7 +758,7 @@ Odpovedz LEN s JSON, žiadny iný text.`
             } catch (error) {
                 console.error('Analysis error:', error);
                 alert('❌ Chyba pri analýze: ' + error.message + '\n\nPozri Console (F12) pre detaily.');
-                await supabase.from('leads').update({ status: 'new' }).eq('id', id);
+                await supabaseClient.from('leads').update({ status: 'new' }).eq('id', id);
             }
 
             await loadLeads();
@@ -778,7 +776,7 @@ Odpovedz LEN s JSON, žiadny iný text.`
 
         // Generate presentation
         async function generatePresentation(id) {
-            const { data: lead } = await supabase.from('leads').select('*').eq('id', id).single();
+            const { data: lead } = await supabaseClient.from('leads').select('*').eq('id', id).single();
             
             if (!lead) {
                 alert('Lead nenájdený');
@@ -796,7 +794,7 @@ Odpovedz LEN s JSON, žiadny iný text.`
             const html = generatePresentationHTML(lead, analysis);
             
             // Save to lead
-            await supabase.from('leads').update({ presentation_html: html }).eq('id', id);
+            await supabaseClient.from('leads').update({ presentation_html: html }).eq('id', id);
             
             // Open in new window
             const win = window.open('', '_blank');
