@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adlify - Lead Generation App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'adlify-orange': '#FF6B35',
+                        'adlify-pink': '#E91E63',
+                        'adlify-purple': '#9C27B0',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%); }
+        .gradient-text {
+            background: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+        input:focus, textarea:focus { border-color: #FF6B35 !important; box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.15); }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                    </div>
+                    <span class="text-2xl font-bold tracking-tight">ADLIFY</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span id="dbStatus" class="text-sm bg-white/20 px-3 py-1 rounded-full">⏳ Pripájam...</span>
+                    <button onclick="openSettings()" class="text-white/80 hover:text-white">⚙️ Nastavenia</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Stats Bar -->
+    <div class="bg-white border-b">
+        <div class="max-w-7xl mx-auto px-6 py-3">
+            <div class="flex items-center gap-8 text-sm">
+                <div><span class="text-gray-500">Celkom leadov:</span> <strong id="totalLeads">0</strong></div>
+                <div><span class="text-gray-500">🆕 Nových:</span> <strong id="newLeads">0</strong></div>
+                <div><span class="text-gray-500">📧 Kontaktovaných:</span> <strong id="contactedLeads">0</strong></div>
+                <div><span class="text-gray-500">✅ Klientov:</span> <strong id="convertedLeads">0</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-6 py-8">
+        <!-- Tabs -->
+        <div class="flex gap-2 mb-6">
+            <button onclick="showTab('search')" id="tab-search" class="px-4 py-2 rounded-lg font-medium bg-adlify-orange text-white">🔍 Vyhľadávanie</button>
+            <button onclick="showTab('import')" id="tab-import" class="px-4 py-2 rounded-lg font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">📥 Import domén</button>
+            <button onclick="showTab('enrich')" id="tab-enrich" class="px-4 py-2 rounded-lg font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">✨ Obohatiť dáta</button>
+        </div>
+
+        <!-- Search Tab -->
+        <div id="panel-search" class="bg-white rounded-2xl shadow-lg p-8 mb-8">
+            <h1 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                <svg class="w-7 h-7 text-adlify-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                Vyhľadať nové firmy
+            </h1>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Remeslo / Odvetvie</label>
+                    <input type="text" id="trade" placeholder="napr. autoservis, kaderníctvo..." 
+                           class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Mesto</label>
+                    <input type="text" id="city" placeholder="napr. Bratislava, Košice..."
+                           class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none transition">
+                </div>
+                <div class="flex items-end">
+                    <button id="searchBtn" onclick="handleSearch()" class="w-full gradient-bg text-white font-semibold py-3 px-6 rounded-xl hover:opacity-90 transition flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        Vyhľadať firmy
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mt-6 p-4 bg-blue-50 rounded-xl text-sm text-blue-800">
+                <strong>💡 Ako to funguje:</strong><br>
+                1. Zadaj remeslo a mesto<br>
+                2. Systém vyhľadá firmy cez Google<br>
+                3. Marketing Miner obohatí kontakty (email, FB, IG)<br>
+                4. Výsledky sa uložia do databázy
+            </div>
+        </div>
+
+        <!-- Import Tab -->
+        <div id="panel-import" class="bg-white rounded-2xl shadow-lg p-8 mb-8 hidden">
+            <h1 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                📥 Import domén
+            </h1>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Zoznam domén (jedna na riadok)</label>
+                <textarea id="domainList" rows="10" placeholder="hadvoservis.sk
+autodiskanec.sk
+autoservisjurik.sk
+..." class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none transition font-mono text-sm"></textarea>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Zdroj (query)</label>
+                    <input type="text" id="importQuery" placeholder="autoservis" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Mesto</label>
+                    <input type="text" id="importCity" placeholder="Bratislava" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none transition">
+                </div>
+            </div>
+            
+            <button onclick="handleImport()" id="importBtn" class="gradient-bg text-white font-semibold py-3 px-6 rounded-xl hover:opacity-90 transition flex items-center justify-center gap-2">
+                📥 Importovať domény
+            </button>
+        </div>
+
+        <!-- Enrich Tab -->
+        <div id="panel-enrich" class="bg-white rounded-2xl shadow-lg p-8 mb-8 hidden">
+            <h1 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                ✨ Obohatiť dáta (Marketing Miner)
+            </h1>
+            
+            <div class="mb-6 p-4 bg-yellow-50 rounded-xl text-sm text-yellow-800">
+                <strong>⚠️ Poznámka:</strong> Táto funkcia vyžaduje Marketing Miner API. 
+                Aktuálne je potrebné exportovať domény, spustiť Contact Finder v MM a importovať výsledky späť.
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="exportDomainsForMM()" class="p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-adlify-orange hover:bg-orange-50 transition text-center">
+                    <div class="text-2xl mb-2">📤</div>
+                    <div class="font-medium">Exportovať domény</div>
+                    <div class="text-sm text-gray-500">Pre Marketing Miner Contact Finder</div>
+                </button>
+                <button onclick="document.getElementById('mmFileInput').click()" class="p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-adlify-orange hover:bg-orange-50 transition text-center">
+                    <div class="text-2xl mb-2">📥</div>
+                    <div class="font-medium">Importovať z MM</div>
+                    <div class="text-sm text-gray-500">Excel súbor z Contact Finder</div>
+                </button>
+                <input type="file" id="mmFileInput" accept=".xlsx,.xls,.csv" onchange="handleMMImport(event)" class="hidden">
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-4">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-lg font-semibold text-gray-800">
+                        Leady: <span class="gradient-text" id="resultsCount">0</span>
+                    </h2>
+                </div>
+                <div class="flex items-center gap-3">
+                    <select id="statusFilter" onchange="loadLeads()" class="px-3 py-2 border border-gray-200 rounded-lg text-sm">
+                        <option value="">Všetky stavy</option>
+                        <option value="new">🆕 Nové</option>
+                        <option value="ready">✨ Pripravené</option>
+                        <option value="contacted">📧 Kontaktované</option>
+                        <option value="converted">✅ Klienti</option>
+                        <option value="rejected">❌ Nezáujem</option>
+                    </select>
+                    <button onclick="loadLeads()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition">
+                        🔄 Obnoviť
+                    </button>
+                </div>
+            </div>
+            <div id="leadsList" class="divide-y divide-gray-100"></div>
+            <div id="emptyList" class="p-12 text-center text-gray-500">
+                Žiadne leady. Spustite vyhľadávanie alebo importujte domény.
+            </div>
+        </div>
+    </main>
+
+    <!-- Status Change Modal -->
+    <div id="statusModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-semibold mb-4">Zmeniť stav</h3>
+            <input type="hidden" id="modalLeadId">
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="setStatus('new')" class="p-3 border rounded-xl hover:bg-gray-50 text-left">🆕 Nový</button>
+                <button onclick="setStatus('ready')" class="p-3 border rounded-xl hover:bg-gray-50 text-left">✨ Pripravený</button>
+                <button onclick="setStatus('contacted')" class="p-3 border rounded-xl hover:bg-gray-50 text-left">📧 Kontaktovaný</button>
+                <button onclick="setStatus('responded')" class="p-3 border rounded-xl hover:bg-gray-50 text-left">💬 Odpovedal</button>
+                <button onclick="setStatus('converted')" class="p-3 border rounded-xl hover:bg-gray-50 text-left">✅ Klient</button>
+                <button onclick="setStatus('rejected')" class="p-3 border rounded-xl hover:bg-gray-50 text-left">❌ Nezáujem</button>
+            </div>
+            <button onclick="closeModal()" class="mt-4 w-full py-2 bg-gray-100 rounded-xl text-gray-700 hover:bg-gray-200">Zrušiť</button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg mx-4">
+            <h3 class="text-lg font-semibold mb-4">⚙️ Nastavenia</h3>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Claude API Key</label>
+                <input type="password" id="settingsApiKey" placeholder="sk-ant-api03-..." 
+                       class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none transition font-mono text-sm">
+                <p class="text-xs text-gray-500 mt-1">Získaj na <a href="https://console.anthropic.com" target="_blank" class="text-adlify-orange">console.anthropic.com</a></p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="saveSettings()" class="flex-1 gradient-bg text-white font-semibold py-2 px-4 rounded-xl hover:opacity-90 transition">Uložiť</button>
+                <button onclick="closeSettings()" class="px-4 py-2 bg-gray-100 rounded-xl text-gray-700 hover:bg-gray-200">Zrušiť</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include SheetJS for Excel parsing -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+    <script>
+        // Claude API key - will be entered by user in settings
+        let CLAUDE_API_KEY = localStorage.getItem('claude_api_key') || '';
+    </script>
+
+    <script>
+        // Supabase setup
+        const SUPABASE_URL = 'https://eidkljfaeqvvegiponwl.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpZGtsamZhZXF2dmVnaXBvbndsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NTgzNjgsImV4cCI6MjA4MjQzNDM2OH0.jFJe_IddYNiO-TOAdxhPSYtSQJlx4i6CFflB0CN4AIQ';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Tab switching
+        function showTab(tab) {
+            ['search', 'import', 'enrich'].forEach(t => {
+                document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
+                document.getElementById(`tab-${t}`).classList.toggle('bg-adlify-orange', t === tab);
+                document.getElementById(`tab-${t}`).classList.toggle('text-white', t === tab);
+                document.getElementById(`tab-${t}`).classList.toggle('bg-gray-100', t !== tab);
+                document.getElementById(`tab-${t}`).classList.toggle('text-gray-700', t !== tab);
+            });
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkConnection();
+            await loadLeads();
+            await loadStats();
+        });
+
+        async function checkConnection() {
+            try {
+                const { count, error } = await supabase.from('leads').select('*', { count: 'exact', head: true });
+                if (error) throw error;
+                document.getElementById('dbStatus').innerHTML = '✅ Pripojené';
+                document.getElementById('dbStatus').className = 'text-sm bg-green-500/30 px-3 py-1 rounded-full';
+            } catch (e) {
+                document.getElementById('dbStatus').innerHTML = '❌ Chyba DB';
+                document.getElementById('dbStatus').className = 'text-sm bg-red-500/30 px-3 py-1 rounded-full';
+                console.error('DB Error:', e);
+            }
+        }
+
+        async function loadStats() {
+            const { data: leads } = await supabase.from('leads').select('status');
+            if (!leads) return;
+            
+            document.getElementById('totalLeads').textContent = leads.length;
+            document.getElementById('newLeads').textContent = leads.filter(l => l.status === 'new' || l.status === 'ready').length;
+            document.getElementById('contactedLeads').textContent = leads.filter(l => l.status === 'contacted').length;
+            document.getElementById('convertedLeads').textContent = leads.filter(l => l.status === 'converted').length;
+        }
+
+        async function loadLeads() {
+            const statusFilter = document.getElementById('statusFilter').value;
+            
+            let query = supabase.from('leads').select('*').order('score', { ascending: false });
+            if (statusFilter) {
+                query = query.eq('status', statusFilter);
+            }
+            
+            const { data: leads, error } = await query;
+            
+            if (error) {
+                console.error('Load error:', error);
+                return;
+            }
+            
+            renderLeads(leads || []);
+        }
+
+        // Search - for now shows instructions since we need backend
+        async function handleSearch() {
+            const trade = document.getElementById('trade').value.trim();
+            const city = document.getElementById('city').value.trim();
+            
+            if (!trade || !city) {
+                alert('Prosím vyplňte obe polia');
+                return;
+            }
+
+            const btn = document.getElementById('searchBtn');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Vyhľadávam...';
+
+            // For now, show instructions
+            alert(`Pre vyhľadanie "${trade} ${city}":\n\n1. Choď na Google a hľadaj "${trade} ${city}"\n2. Skopíruj domény firiem\n3. Vlož ich do záložky "Import domén"\n\nAlebo použi Marketing Miner Report s Contact Finder.`);
+
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg> Vyhľadať firmy';
+        }
+
+        // Import domains manually
+        async function handleImport() {
+            const domainList = document.getElementById('domainList').value.trim();
+            const query = document.getElementById('importQuery').value.trim();
+            const city = document.getElementById('importCity').value.trim();
+            
+            if (!domainList) {
+                alert('Zadajte zoznam domén');
+                return;
+            }
+
+            const btn = document.getElementById('importBtn');
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Importujem...';
+
+            const domains = domainList.split('\n').map(d => d.trim()).filter(d => d && d.includes('.'));
+            let addedCount = 0;
+
+            for (const domain of domains) {
+                const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+                
+                const { data: existing } = await supabase.from('leads').select('id').eq('domain', cleanDomain).single();
+                
+                if (!existing) {
+                    const { error } = await supabase.from('leads').insert({
+                        domain: cleanDomain,
+                        company_name: cleanDomain.split('.')[0],
+                        source_query: query || null,
+                        source_city: city || null,
+                        status: 'new',
+                        score: 50
+                    });
+                    if (!error) addedCount++;
+                }
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '📥 Importovať domény';
+            
+            alert(`Importovaných ${addedCount} nových domén z ${domains.length}`);
+            document.getElementById('domainList').value = '';
+            
+            await loadLeads();
+            await loadStats();
+        }
+
+        // Export domains for Marketing Miner
+        async function exportDomainsForMM() {
+            const { data: leads } = await supabase.from('leads').select('domain').is('email', null);
+            
+            if (!leads || leads.length === 0) {
+                alert('Žiadne domény na export (všetky už majú kontakty)');
+                return;
+            }
+
+            const domains = leads.map(l => l.domain).join('\n');
+            
+            // Download as text file
+            const blob = new Blob([domains], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'domains-for-marketing-miner.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            alert(`Exportovaných ${leads.length} domén.\n\n1. Nahraj súbor do Marketing Miner\n2. Spusti Contact Finder miner\n3. Exportuj výsledky ako Excel\n4. Importuj späť cez "Importovať z MM"`);
+        }
+
+        // Import from Marketing Miner Excel
+        async function handleMMImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(sheet);
+
+                    let updatedCount = 0;
+
+                    for (const row of json) {
+                        // Marketing Miner columns: Input, Contact Page, Contact Emails, Facebook, Instagram, etc.
+                        const domain = (row['Input'] || row['Domain'] || '').toString().trim();
+                        if (!domain) continue;
+
+                        const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+
+                        // Parse email (remove confidence percentage)
+                        let email = row['Contact Emails'] || row['Email'] || '';
+                        if (email) {
+                            email = email.split(';')[0].split('(')[0].trim();
+                            if (!email.includes('@')) email = null;
+                        }
+
+                        const updateData = {};
+                        if (email) updateData.email = email;
+                        if (row['Contact Page']) updateData.contact_page = row['Contact Page'];
+                        if (row['Facebook']) updateData.facebook = row['Facebook'].split(';')[0].trim();
+                        if (row['Instagram']) updateData.instagram = row['Instagram'].split(';')[0].trim();
+                        if (row['YouTube']) updateData.youtube = row['YouTube'];
+                        if (row['LinkedIn']) updateData.linkedin = row['LinkedIn'];
+                        if (row['TikTok']) updateData.tiktok = row['TikTok'];
+
+                        // Calculate score
+                        let score = 50;
+                        if (updateData.email) score += 20;
+                        if (updateData.facebook) score += 10;
+                        if (updateData.instagram) score += 10;
+                        if (updateData.contact_page) score += 5;
+                        if (updateData.youtube) score += 3;
+                        if (updateData.linkedin) score += 2;
+                        updateData.score = Math.min(score, 100);
+
+                        if (Object.keys(updateData).length > 1) {
+                            const { error } = await supabase
+                                .from('leads')
+                                .update(updateData)
+                                .eq('domain', cleanDomain);
+                            
+                            if (!error) updatedCount++;
+                        }
+                    }
+
+                    alert(`Aktualizovaných ${updatedCount} leadov z ${json.length} riadkov`);
+                    await loadLeads();
+                    await loadStats();
+                } catch (err) {
+                    console.error('Import error:', err);
+                    alert('Chyba pri importe: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = '';
+        }
+
+        function renderLeads(leads) {
+            const list = document.getElementById('leadsList');
+            const empty = document.getElementById('emptyList');
+            const count = document.getElementById('resultsCount');
+            
+            count.textContent = leads.length;
+            
+            if (leads.length === 0) {
+                list.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+            
+            empty.classList.add('hidden');
+            
+            list.innerHTML = leads.map((lead, index) => `
+                <div class="px-6 py-4 hover:bg-gray-50 transition animate-fade-in" style="animation-delay: ${index * 30}ms">
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-3 mb-1 flex-wrap">
+                                <h3 class="font-semibold text-gray-800">${lead.company_name || lead.domain}</h3>
+                                <a href="https://${lead.domain}" target="_blank" class="text-sm text-adlify-orange hover:underline flex items-center gap-1">
+                                    ${lead.domain}
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                </a>
+                                ${getStatusBadge(lead.status)}
+                            </div>
+                            <div class="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
+                                ${lead.email ? `<span class="flex items-center gap-1 text-green-600">📧 ${lead.email}</span>` : '<span class="text-gray-300">📧 Bez emailu</span>'}
+                                ${lead.facebook ? `<a href="${lead.facebook}" target="_blank" class="text-blue-600 hover:text-blue-700">FB ✓</a>` : ''}
+                                ${lead.instagram ? `<a href="${lead.instagram}" target="_blank" class="text-pink-600 hover:text-pink-700">IG ✓</a>` : ''}
+                                ${lead.contacted_at ? `<span class="text-gray-400">📅 ${new Date(lead.contacted_at).toLocaleDateString('sk')}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="px-3 py-1 rounded-full text-sm font-semibold ${getScoreClass(lead.score)}">⭐ ${lead.score}</div>
+                        <div class="flex items-center gap-2">
+                            ${getActionButtons(lead)}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getStatusBadge(status) {
+            const badges = {
+                'new': '<span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">🆕 Nový</span>',
+                'analyzing': '<span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">⏳ Analyzuje sa</span>',
+                'ready': '<span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">✨ Pripravený</span>',
+                'contacted': '<span class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium">📧 Kontaktovaný</span>',
+                'responded': '<span class="px-2 py-0.5 bg-teal-100 text-teal-700 rounded text-xs font-medium">💬 Odpovedal</span>',
+                'converted': '<span class="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">✅ Klient</span>',
+                'rejected': '<span class="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">❌ Nezáujem</span>',
+            };
+            return badges[status] || '';
+        }
+
+        function getScoreClass(score) {
+            if (score >= 80) return 'text-green-600 bg-green-100';
+            if (score >= 60) return 'text-yellow-600 bg-yellow-100';
+            return 'text-red-600 bg-red-100';
+        }
+
+        function getActionButtons(lead) {
+            let buttons = '';
+            
+            // Analyze button for new leads without analysis
+            if ((lead.status === 'new' || !lead.analysis) && lead.status !== 'analyzing') {
+                buttons += `<button onclick="analyzeLead('${lead.id}', '${lead.domain}')" id="btn-analyze-${lead.id}" class="px-3 py-2 bg-adlify-orange/10 text-adlify-orange rounded-lg text-sm font-medium hover:bg-adlify-orange/20 transition">🤖 Analyzovať</button>`;
+            }
+            
+            // Analyzing status
+            if (lead.status === 'analyzing') {
+                buttons += `<span class="px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg text-sm">⏳ Analyzujem...</span>`;
+            }
+            
+            // Presentation button for leads with analysis
+            if (lead.analysis) {
+                buttons += `<button onclick="generatePresentation('${lead.id}')" class="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 transition">📄 Prezentácia</button>`;
+            }
+            
+            // Send button for ready leads with email
+            if (lead.status === 'ready' && lead.email) {
+                buttons += `<button onclick="markAsContacted('${lead.id}')" class="px-3 py-2 gradient-bg text-white rounded-lg text-sm font-medium hover:opacity-90 transition">📧 Odoslané</button>`;
+            }
+            
+            // Settings button
+            buttons += `<button onclick="openModal('${lead.id}')" class="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200 transition">⚙️</button>`;
+            
+            return buttons;
+        }
+
+        async function setStatusDirect(id, status) {
+            await supabase.from('leads').update({ status }).eq('id', id);
+            await loadLeads();
+            await loadStats();
+        }
+
+        async function markAsContacted(id) {
+            await supabase.from('leads').update({ 
+                status: 'contacted',
+                contacted_at: new Date().toISOString()
+            }).eq('id', id);
+            await loadLeads();
+            await loadStats();
+        }
+
+        function openModal(id) {
+            document.getElementById('modalLeadId').value = id;
+            document.getElementById('statusModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('statusModal').classList.add('hidden');
+        }
+
+        async function setStatus(status) {
+            const id = document.getElementById('modalLeadId').value;
+            const updateData = { status };
+            if (status === 'contacted') updateData.contacted_at = new Date().toISOString();
+            await supabase.from('leads').update(updateData).eq('id', id);
+            closeModal();
+            await loadLeads();
+            await loadStats();
+        }
+
+        document.getElementById('statusModal').addEventListener('click', (e) => {
+            if (e.target.id === 'statusModal') closeModal();
+        });
+
+        document.getElementById('trade').addEventListener('keypress', e => { if (e.key === 'Enter') handleSearch(); });
+        document.getElementById('city').addEventListener('keypress', e => { if (e.key === 'Enter') handleSearch(); });
+
+        // Settings functions
+        function openSettings() {
+            document.getElementById('settingsApiKey').value = CLAUDE_API_KEY;
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function saveSettings() {
+            const apiKey = document.getElementById('settingsApiKey').value.trim();
+            if (apiKey) {
+                CLAUDE_API_KEY = apiKey;
+                localStorage.setItem('claude_api_key', apiKey);
+                alert('✅ API kľúč uložený!');
+            }
+            closeSettings();
+        }
+
+        document.getElementById('settingsModal').addEventListener('click', (e) => {
+            if (e.target.id === 'settingsModal') closeSettings();
+        });
+
+        // AI Analysis function
+        async function analyzeLead(id, domain) {
+            // Check for API key
+            if (!CLAUDE_API_KEY) {
+                alert('⚠️ Najprv nastav Claude API kľúč v Nastaveniach (⚙️ vpravo hore)');
+                openSettings();
+                return;
+            }
+
+            const btn = document.getElementById(`btn-analyze-${id}`);
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '⏳ Analyzujem...';
+            }
+
+            // Update status to analyzing
+            await supabase.from('leads').update({ status: 'analyzing' }).eq('id', id);
+            await loadLeads();
+
+            try {
+                console.log('Starting analysis for:', domain);
+                
+                // Fetch website content (using a CORS proxy for demo)
+                let websiteContent = '';
+                try {
+                    console.log('Fetching website...');
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://' + domain)}`;
+                    const response = await fetch(proxyUrl, { timeout: 10000 });
+                    if (response.ok) {
+                        const html = await response.text();
+                        // Extract text content from HTML
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        // Remove scripts and styles
+                        doc.querySelectorAll('script, style, nav, footer, header').forEach(el => el.remove());
+                        websiteContent = doc.body?.innerText?.substring(0, 5000) || '';
+                        console.log('Website content loaded:', websiteContent.substring(0, 200) + '...');
+                    }
+                } catch (e) {
+                    console.log('Could not fetch website:', e.message);
+                }
+
+                console.log('Calling Claude API...');
+                
+                // Call Claude API for analysis
+                const analysisResponse = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': CLAUDE_API_KEY,
+                        'anthropic-version': '2023-06-01',
+                        'anthropic-dangerous-direct-browser-access': 'true'
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-20250514',
+                        max_tokens: 2000,
+                        messages: [{
+                            role: 'user',
+                            content: `Analyzuj túto slovenskú firmu a vytvor JSON analýzu pre marketingovú prezentáciu.
+
+Doména: ${domain}
+${websiteContent ? `Obsah webu:\n${websiteContent}` : 'Obsah webu sa nepodarilo načítať, analyzuj na základe domény.'}
+
+Vytvor JSON v tomto formáte (bez markdown, len čistý JSON):
+{
+    "company_name": "Názov firmy",
+    "description": "Stručný popis firmy (2-3 vety)",
+    "services": ["služba1", "služba2", "služba3"],
+    "strengths": ["silná stránka 1", "silná stránka 2"],
+    "weaknesses": ["slabá stránka / príležitosť 1"],
+    "potential": "Kde vidíme marketingový potenciál (2-3 vety)",
+    "keywords": [
+        {"keyword": "klúčové slovo 1", "volume": 500, "difficulty": "easy"},
+        {"keyword": "klúčové slovo 2", "volume": 300, "difficulty": "medium"}
+    ],
+    "recommended_package": "pro",
+    "roi_estimate": {
+        "new_customers": "30-50",
+        "avg_order": "80€",
+        "monthly_revenue": "3000€"
+    }
+}
+
+Odpovedz LEN s JSON, žiadny iný text.`
+                        }]
+                    })
+                });
+
+                console.log('Claude API response status:', analysisResponse.status);
+
+                if (!analysisResponse.ok) {
+                    const errorText = await analysisResponse.text();
+                    console.error('Claude API error:', errorText);
+                    throw new Error('Claude API error: ' + analysisResponse.status + ' - ' + errorText);
+                }
+
+                const analysisData = await analysisResponse.json();
+                console.log('Claude response:', analysisData);
+                
+                const analysisText = analysisData.content[0].text;
+                console.log('Analysis text:', analysisText);
+                
+                // Parse JSON from response
+                let analysis;
+                try {
+                    analysis = JSON.parse(analysisText);
+                } catch (e) {
+                    // Try to extract JSON from response
+                    const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        analysis = JSON.parse(jsonMatch[0]);
+                    } else {
+                        throw new Error('Could not parse analysis JSON');
+                    }
+                }
+
+                console.log('Parsed analysis:', analysis);
+
+                // Update lead with analysis
+                await supabase.from('leads').update({
+                    status: 'ready',
+                    analysis: analysis,
+                    company_name: analysis.company_name || domain.split('.')[0],
+                    score: calculateScore(analysis)
+                }).eq('id', id);
+
+                alert(`✅ Analýza dokončená pre ${domain}!`);
+
+            } catch (error) {
+                console.error('Analysis error:', error);
+                alert('❌ Chyba pri analýze: ' + error.message + '\n\nPozri Console (F12) pre detaily.');
+                await supabase.from('leads').update({ status: 'new' }).eq('id', id);
+            }
+
+            await loadLeads();
+            await loadStats();
+        }
+
+        function calculateScore(analysis) {
+            let score = 60; // base score
+            if (analysis.services?.length > 3) score += 10;
+            if (analysis.strengths?.length > 1) score += 10;
+            if (analysis.keywords?.length > 3) score += 10;
+            if (analysis.roi_estimate) score += 10;
+            return Math.min(score, 100);
+        }
+
+        // Generate presentation
+        async function generatePresentation(id) {
+            const { data: lead } = await supabase.from('leads').select('*').eq('id', id).single();
+            
+            if (!lead) {
+                alert('Lead nenájdený');
+                return;
+            }
+
+            if (!lead.analysis) {
+                alert('Najprv spusti analýzu firmy');
+                return;
+            }
+
+            const analysis = lead.analysis;
+            
+            // Generate HTML presentation
+            const html = generatePresentationHTML(lead, analysis);
+            
+            // Save to lead
+            await supabase.from('leads').update({ presentation_html: html }).eq('id', id);
+            
+            // Open in new window
+            const win = window.open('', '_blank');
+            win.document.write(html);
+            win.document.close();
+        }
+
+        function generatePresentationHTML(lead, analysis) {
+            const keywords = analysis.keywords || [];
+            const services = analysis.services || [];
+            const strengths = analysis.strengths || [];
+            const weaknesses = analysis.weaknesses || [];
+            
+            return `<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Návrh marketingovej stratégie - ${analysis.company_name || lead.domain}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        :root { --orange: #FF6B35; --pink: #E91E63; --purple: #9C27B0; --dark: #1a1a2e; --light: #f8f9fa; --gradient: linear-gradient(135deg, #FF6B35 0%, #E91E63 50%, #9C27B0 100%); }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; background: var(--light); color: var(--dark); line-height: 1.6; }
+        .slide { max-width: 1000px; margin: 0 auto 30px; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); overflow: hidden; page-break-after: always; }
+        .slide-title { min-height: 400px; background: var(--gradient); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 40px; color: white; }
+        .slide-title h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 15px; }
+        .slide-title .subtitle { font-size: 1.2rem; opacity: 0.9; }
+        .slide-content { padding: 40px; }
+        .slide-header { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; padding-bottom: 15px; border-bottom: 3px solid; border-image: var(--gradient) 1; }
+        .slide-header .number { width: 40px; height: 40px; background: var(--gradient); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; }
+        .slide-header h2 { font-size: 1.5rem; }
+        .card { background: var(--light); border-radius: 12px; padding: 20px; margin-bottom: 15px; border-left: 4px solid var(--orange); }
+        .card.pink { border-left-color: var(--pink); }
+        .card.purple { border-left-color: var(--purple); }
+        .card h3 { font-size: 1rem; margin-bottom: 8px; }
+        .card p { color: #666; font-size: 0.9rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .packages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px; }
+        .package { background: white; border: 2px solid #eee; border-radius: 12px; padding: 20px; text-align: center; }
+        .package.recommended { border-color: var(--orange); box-shadow: 0 5px 20px rgba(255,107,53,0.2); }
+        .package h3 { font-size: 1rem; margin-bottom: 5px; }
+        .package .price { font-size: 1.8rem; font-weight: 700; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .package ul { list-style: none; text-align: left; font-size: 0.8rem; margin-top: 15px; }
+        .package ul li { padding: 5px 0; }
+        .package ul li::before { content: '✓ '; color: #4CAF50; }
+        .keywords-table { width: 100%; border-collapse: collapse; background: var(--dark); border-radius: 12px; overflow: hidden; color: white; }
+        .keywords-table th, .keywords-table td { padding: 12px; text-align: left; }
+        .keywords-table th { background: rgba(255,255,255,0.1); font-size: 0.85rem; }
+        .keywords-table td { border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.9rem; }
+        .cta-slide { min-height: 350px; background: var(--gradient); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 40px; color: white; }
+        .cta-slide h2 { font-size: 2rem; margin-bottom: 15px; }
+        .cta-slide p { font-size: 1.1rem; opacity: 0.9; margin-bottom: 30px; }
+        .roi-box { background: rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-top: 20px; }
+        .roi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center; }
+        .roi-item .value { font-size: 1.5rem; font-weight: 700; }
+        .roi-item .label { font-size: 0.8rem; opacity: 0.8; }
+        @media print { .slide { box-shadow: none; margin: 0; } }
+    </style>
+</head>
+<body>
+    <!-- Slide 1: Title -->
+    <div class="slide">
+        <div class="slide-title">
+            <div style="position:absolute;top:20px;left:30px;font-weight:700;font-size:1.2rem;">ADLIFY</div>
+            <h1>${analysis.company_name || lead.domain}</h1>
+            <div class="subtitle">Návrh online marketingovej stratégie</div>
+            <div style="margin-top:30px;background:rgba(255,255,255,0.2);padding:10px 30px;border-radius:30px;">🌐 ${lead.domain}</div>
+        </div>
+    </div>
+
+    <!-- Slide 2: About -->
+    <div class="slide">
+        <div class="slide-content">
+            <div class="slide-header"><div class="number">1</div><h2>O vašom biznise</h2></div>
+            <div class="card">
+                <h3>👋 Kto ste</h3>
+                <p>${analysis.description || 'Firma poskytujúca kvalitné služby vo svojom odbore.'}</p>
+            </div>
+            <div class="card pink">
+                <h3>🛠️ Vaše služby</h3>
+                <p>${services.join(', ') || 'Rôzne služby'}</p>
+            </div>
+            <div class="card purple">
+                <h3>💡 Marketingový potenciál</h3>
+                <p>${analysis.potential || 'S cielenou online reklamou viete osloviť nových zákazníkov, ktorí práve teraz hľadajú vaše služby.'}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 3: Analysis -->
+    <div class="slide">
+        <div class="slide-content">
+            <div class="slide-header"><div class="number">2</div><h2>Čo sme zistili</h2></div>
+            <div class="grid-2">
+                <div>
+                    <h3 style="color:#4CAF50;margin-bottom:15px;">✅ Silné stránky</h3>
+                    ${strengths.map(s => `<div class="card"><p>${s}</p></div>`).join('')}
+                </div>
+                <div>
+                    <h3 style="color:var(--orange);margin-bottom:15px;">⚠️ Príležitosti</h3>
+                    ${weaknesses.map(w => `<div class="card pink"><p>${w}</p></div>`).join('')}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 4: Keywords -->
+    <div class="slide">
+        <div class="slide-content">
+            <div class="slide-header"><div class="number">3</div><h2>Kľúčové slová</h2></div>
+            <table class="keywords-table">
+                <thead><tr><th>Kľúčové slovo</th><th>Mesačné vyhľadávania</th><th>Konkurencia</th></tr></thead>
+                <tbody>
+                    ${keywords.map(k => `<tr><td>${k.keyword}</td><td>${k.volume}/mes</td><td>${k.difficulty === 'easy' ? '🟢 Nízka' : k.difficulty === 'medium' ? '🟡 Stredná' : '🔴 Vysoká'}</td></tr>`).join('')}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Slide 5: Packages -->
+    <div class="slide">
+        <div class="slide-content">
+            <div class="slide-header"><div class="number">4</div><h2>Návrh spolupráce</h2></div>
+            <div class="packages">
+                <div class="package ${analysis.recommended_package === 'starter' ? 'recommended' : ''}">
+                    <h3>🚀 Starter</h3>
+                    <div class="price">149€</div>
+                    <div style="color:#666;font-size:0.8rem;">/mesiac</div>
+                    <ul><li>1 platforma</li><li>1 kampaň</li><li>2 vizuály</li><li>Mesačný report</li></ul>
+                </div>
+                <div class="package ${analysis.recommended_package === 'pro' ? 'recommended' : ''}">
+                    <h3>⭐ Pro</h3>
+                    <div class="price">249€</div>
+                    <div style="color:#666;font-size:0.8rem;">/mesiac</div>
+                    <ul><li>2 platformy</li><li>3 kampane</li><li>4 vizuály</li><li>A/B testovanie</li></ul>
+                </div>
+                <div class="package ${analysis.recommended_package === 'enterprise' ? 'recommended' : ''}">
+                    <h3>💎 Enterprise</h3>
+                    <div class="price">399€</div>
+                    <div style="color:#666;font-size:0.8rem;">/mesiac</div>
+                    <ul><li>Všetky platformy</li><li>5 kampaní</li><li>8 vizuálov</li><li>Prioritná podpora</li></ul>
+                </div>
+            </div>
+            <div style="background:#fff8f0;border:2px dashed var(--orange);border-radius:12px;padding:20px;text-align:center;">
+                <strong style="color:var(--orange);">💰 Odporúčaný reklamný rozpočet: 300-500€/mesiac</strong>
+                <p style="font-size:0.85rem;color:#666;margin-top:5px;">Platíte priamo Googlu/Mete. Máte plnú kontrolu.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 6: ROI -->
+    <div class="slide">
+        <div class="slide-content">
+            <div class="slide-header"><div class="number">5</div><h2>Očakávaná návratnosť</h2></div>
+            <div class="roi-box" style="background:var(--dark);color:white;">
+                <div class="roi-grid">
+                    <div class="roi-item"><div class="value">${analysis.roi_estimate?.new_customers || '30-50'}</div><div class="label">Nových zákazníkov/mes</div></div>
+                    <div class="roi-item"><div class="value">${analysis.roi_estimate?.avg_order || '80€'}</div><div class="label">Priemerná objednávka</div></div>
+                    <div class="roi-item"><div class="value">${analysis.roi_estimate?.monthly_revenue || '3000€'}</div><div class="label">Potenciálna tržba</div></div>
+                </div>
+            </div>
+            <div class="card" style="margin-top:20px;">
+                <p><strong>Pri balíku Pro (249€) + rozpočte 400€:</strong><br>
+                Investícia 649€/mes → Potenciálna tržba ${analysis.roi_estimate?.monthly_revenue || '3000€'}/mes<br>
+                <strong style="color:#4CAF50;">= Návratnosť 4-5x</strong></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide 7: CTA -->
+    <div class="slide">
+        <div class="cta-slide">
+            <h2>Začnime spoluprácu</h2>
+            <p>Dohodnite si nezáväznú konzultáciu a preberieme detaily.</p>
+            <div style="display:flex;gap:15px;">
+                <a href="#" style="background:white;color:var(--purple);padding:12px 30px;border-radius:30px;text-decoration:none;font-weight:600;">✓ Mám záujem</a>
+                <a href="#" style="border:2px solid white;color:white;padding:12px 30px;border-radius:30px;text-decoration:none;font-weight:600;">Mám otázky</a>
+            </div>
+            <div style="margin-top:30px;opacity:0.9;">📧 info@adlify.eu · 🌐 adlify.eu</div>
+        </div>
+    </div>
+</body>
+</html>`;
+        }
+    </script>
+</body>
+</html>
